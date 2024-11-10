@@ -49,16 +49,24 @@ let rec trPrintExpression (e: expression) (acc: string -> string): string = matc
 let printExpression' (e : expression) : string = trPrintExpression e (fun r -> r)
 
 let truthTable2D (e : expression) : ((bool list) list) = 
-  let a00 = (true, true) in
-  let a01 = (true, false) in
-  let a10 = (false, true) in
+  let a00 = (true, true) in 
+  let a01 = (false, true) in
+  let a10 = (true, false) in
   let a11 = (false, false) in
     [[evaluateExpression' e a00; evaluateExpression' e a01];
     [evaluateExpression' e a10; evaluateExpression' e a11]]
-  
+
+let satSolver2D (e1 : expression) (e2 : expression) : bool = 
+  let e = Or(Not(e1), e2) in
+  let result = truthTable2D e in
+  result = [[true;true];[true;true]]
 
 let test1 = And(Not(Or(Var("a"), And(Var("a"), Var("b")))), Or(And(Var("a"), Var("b")), And(Not(Var("a")), Var("b"))));;
 let test2 = And(Not(Var("a")), Var("b")) ;;
+
+let sat1 = And(Var("a"), Var("b"));;
+let sat2 = Var("a")
+let sat3 = Or(Var("a"), Var("b"))
 
 let test e = 
   let a = evaluateExpression e (true, true) in 
@@ -70,8 +78,10 @@ let test e =
   "Reg: " ^ string_of_bool a ^ " TR: " ^ string_of_bool b ^
   "   Print Reg: " ^ c ^ " TR: " ^ d ^ "    " ^ string_of_bool_list_list e ;;
 
-test test1;;
-test test2;;
+(*test test1;;
+test test2;;*)
+truthTable2D test2;;
+satSolver2D sat1 sat3;;
 
 (*evaluateExpression test2 (true, true);;
 evaluateExpression' test2 (true, true);;
