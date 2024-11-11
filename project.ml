@@ -11,8 +11,12 @@ type expression =
 (*PRINTING*)
 let string_of_bool_list lst =
   "[" ^ String.concat "; " (List.map string_of_bool lst) ^ "]"
+let string_of_2_bool_list lst =
+  "[" ^ String.concat "; " (List.map (fun (a, b) -> ("("^string_of_bool a ^ ", " ^ string_of_bool b^")")) lst) ^ "]"
 let string_of_bool_list_list lst_lst =
   "[" ^ String.concat "; " (List.map string_of_bool_list lst_lst) ^ "]"
+let string_of_2_bool_list_list lst_lst =
+  "[" ^ String.concat "; " (List.map string_of_2_bool_list lst_lst) ^ "]"
 let rec printExpression (e: expression): string = match e with
   |Var("a") -> "a"
   |Var("b") -> "b"
@@ -28,6 +32,7 @@ let rec trPrintExpression (e: expression) (acc: string -> string): string = matc
   |Or(u, v) -> trPrintExpression u (fun r1  -> trPrintExpression v (fun r2 -> acc ("(" ^ r1 ^ " ∨ " ^ r2 ^ ")")))
   |Var(_) -> raise invalidInput
 let printExpression' (e : expression) : string = trPrintExpression e (fun r -> r)
+
 
 (*EVALUATING*)
 let rec evaluateExpression (e: expression) (i : bool * bool) : bool = let (a, b) = i in
@@ -67,6 +72,8 @@ let rec memoEvaluateExpression (e : expression) (i : bool * bool) =
     let output = memoEval e in
     (Hashtbl.iter (fun x y -> Printf.printf "%s -> %s\n" (printExpression x) (string_of_bool y)) store; output)
 
+
+(*SAT SECTION*)
 let truthTable2D (e : expression) (evaluator : expression -> (bool * bool) -> bool): ((bool list) list) = 
   let a00 = (true, true) in 
   let a01 = (false, true) in
@@ -74,16 +81,31 @@ let truthTable2D (e : expression) (evaluator : expression -> (bool * bool) -> bo
   let a11 = (false, false) in
     [[evaluator e a00; evaluator e a01];
     [evaluator e a10; evaluator e a11]]
-
-let satSolver2D (e1 : expression) (e2 : expression) evaluator : bool = 
+let satSolverImplies (e1 : expression) (e2 : expression) evaluator : bool = 
   let e = Or(Not(e1), e2) in
   let result = truthTable2D e evaluator in
   result = [[true;true];[true;true]]
+let satSolverImpliedBy (e1 : expression) (e2: expression) evaluator : bool = 
+  let e = Or(Not(e2), e1) in
+  let result = truthTable2D e evaluator in
+  result = [[true;true];[true;true]]
+let satSolverIff (e1 : expression) (e2: expression) evaluator : bool = 
+  (satSolverImplies e1 e2 evaluator) && (satSolverImpliedBy e1 e2 evaluator)
 
 
+(*SOLUTION SET*)
+let existsSolution (e: expression) evaluator : bool = 
+  evaluator e (true, true) || evaluator e (false, true) || evaluator e (true, false) || evaluator e (false, false)
+let alwaysTrue (e: expression) evaluator : bool =
+  evaluator e (true, true) && evaluator e (false, true) && evaluator e (true, false) && evaluator e (false, false)
+let findSolutions (e: expression) evaluator : (bool * bool) list =
+  let comb = [(true, true);(false, true);(true, false);(false, false)] in
+  let rec findComb comb acc = match comb with
+  |[] -> acc
+  |h::t -> if evaluator e h then findComb t (h::acc) else findComb t acc 
+in findComb comb []
 
-
-
+ 
 (*    TESTINGGGGGG   *)
 let test1 = And(Not(Or(Var("a"), And(Var("a"), Var("b")))), Or(And(Var("a"), Var("b")), And(Not(Var("a")), Var("b"))));;
 let test2 = And(Not(Var("a")), Var("b")) ;;
@@ -101,20 +123,25 @@ let test e =
   let f = truthTable2D e evaluateExpression in
   let f' = truthTable2D e evaluateExpression' in
   let f'' = truthTable2D e memoEvaluateExpression in
+  let g = findSolutions e evaluateExpression in
 
   "Reg: " ^ string_of_bool a ^ " TR: " ^ string_of_bool a' ^ " MEMO:  " ^ string_of_bool a'' ^
   "   Print Reg: " ^ c ^ " TR: " ^ d ^ "    " ^ "REG:  " ^string_of_bool_list_list f ^
-  " TR : " ^ string_of_bool_list_list f' ^ " MEMO : " ^ string_of_bool_list_list f'' ;;
+  " TR : " ^ string_of_bool_list_list f' ^ " MEMO : " ^ string_of_bool_list_list f'' ^
+  "FIND SOL: " ^ string_of_2_bool_list g;;
 
 test test1;;
 test test2;;
 test sat1;;
 test sat2;;
 test sat3;;
-truthTable2D test2;;
-satSolver2D sat1 sat3;;
+truthTable2D test2 evaluateExpression;;
+satSolverImplies sat1 sat3 evaluateExpression;;
 
-memoEvaluateExpression test1 (false, true)
+memoEvaluateExpression test1 (false, true);;
+existsSolution test1 evaluateExpression;;
+truthTable2D test1 evaluateExpression;;
+findSolutions test1 evaluateExpression
 
 (*evaluateExpression test2 (true, true);;
 evaluateExpression' test2 (true, true);;
