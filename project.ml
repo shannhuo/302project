@@ -90,7 +90,9 @@ let satSolverImpliedBy (e1 : expression) (e2: expression) evaluator : bool =
   let result = truthTable2D e evaluator in
   result = [[true;true];[true;true]]
 let satSolverIff (e1 : expression) (e2: expression) evaluator : bool = 
-  (satSolverImplies e1 e2 evaluator) && (satSolverImpliedBy e1 e2 evaluator)
+  let e = Or(And(e1, e2), And(Not(e1), Not(e2))) in
+  let result = truthTable2D e evaluator in
+  result = [[true;true];[true;true]]
 
 
 (*SOLUTION SET*)
@@ -113,6 +115,7 @@ let test2 = And(Not(Var("a")), Var("b")) ;;
 let sat1 = And(Var("a"), Var("b"));;
 let sat2 = Var("a")
 let sat3 = Or(Var("a"), Var("b"))
+let sat4 = Not(And(Not(Var("a")), Not(Var("b"))))
 
 let test e = 
   let a = evaluateExpression e (true, true) in 
@@ -136,7 +139,9 @@ test sat1;;
 test sat2;;
 test sat3;;
 truthTable2D test2 evaluateExpression;;
-satSolverImplies sat1 sat3 evaluateExpression;;
+satSolverImplies sat3 sat4 evaluateExpression;;
+satSolverImpliedBy sat3 sat4 evaluateExpression;;
+satSolverIff sat3 sat4 evaluateExpression;;
 
 memoEvaluateExpression test1 (false, true);;
 existsSolution test1 evaluateExpression;;
