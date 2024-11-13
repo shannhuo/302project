@@ -27,7 +27,7 @@ let rec printExpression (e: expression): string = match e with
 let inputList (e: expression): int list = 
   let acc = [] in
   let rec matchInputs e = match e with
-    |Var(u) ->
+    |Var(u) -> 
     |Not(u) -> matchInputs u
     |And(u, v)-> matchInputs u @ matchInputs v
     |Or(u, v)-> matchInputs u @ matchInputs v in
