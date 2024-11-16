@@ -87,9 +87,12 @@ let print_truth_table (e : expression) =
 (* TESTING *)
 let test1 = And(Not(Or(Var(1), And(Var(1), Var(2)))), Or(And(Var(3), Var(2)), And(Not(Var(1)), Var(3))))
 let test2 = And(Not(Var(3)), Var(2))
-
+let test3 = Or(And(Var(1), Not(Var(2))), And(Var(3), Var(4)))
 let () =
   printExpression test1 |> Printf.printf "Expression 1: %s\n";
   printExpression test2 |> Printf.printf "Expression 2: %s\n";
+  printExpression test3 |> Printf.printf "Expression 3: %s\n";
+
   print_truth_table test1;
   print_truth_table test2
+  print_truth_table test 3
