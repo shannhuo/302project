@@ -58,7 +58,7 @@ let make_value_pairs vars comb =
 
 
 (* EVALUATING WITH MEMOIZATION *)
-let memoEvaluateExpression (e: expression) = (* partial evaluation *)
+let memoEvaluateExpression = (* partial evaluation *)
   let store : (expression * (int * bool) list, bool) Hashtbl.t = Hashtbl.create 1000 in
 
   let rec eval e values =
@@ -84,10 +84,9 @@ let memoEvaluateExpression (e: expression) = (* partial evaluation *)
 let truthTable (e : expression) : (bool list * bool) list =
   let vars = inputList e in
   let combinations = generate_combinations (List.length vars) in
-  let eval = memoEvaluateExpression e in
   List.map (fun comb ->
       let values = make_value_pairs vars comb in
-      (comb, eval e values)
+      (comb, memoEvaluateExpression e values)
     ) combinations
 
 (* format: list of ([var1=bool1, ..., varn=booln], eval)  *)   

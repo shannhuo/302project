@@ -9,14 +9,6 @@ type expression =
 
 
 (*PRINTING*)
-let string_of_bool_list lst =
-  "[" ^ String.concat "; " (List.map string_of_bool lst) ^ "]"
-let string_of_2_bool_list lst =
-  "[" ^ String.concat "; " (List.map (fun (a, b) -> ("("^string_of_bool a ^ ", " ^ string_of_bool b^")")) lst) ^ "]"
-let string_of_bool_list_list lst_lst =
-  "[" ^ String.concat "; " (List.map string_of_bool_list lst_lst) ^ "]"
-let string_of_2_bool_list_list lst_lst =
-  "[" ^ String.concat "; " (List.map string_of_2_bool_list lst_lst) ^ "]"
 
 let make_value_pairs vars comb =
   List.combine vars comb
@@ -43,9 +35,10 @@ let printExpression' (e: expression) : string =
 
 
 (*EVALUATING*)
-let evaluateExpression (e: expression) =
+let evaluateExpression =
   let pullValues e values = match values with 
   | a::[b] -> (
+
   let rec eval e = match e with 
     |Var("a") -> a
     |Var("b") -> b
@@ -54,11 +47,13 @@ let evaluateExpression (e: expression) =
     |Or(u, v) -> let u' = (eval u) and v' = (eval v) in (u' || v')
     |Var(_) -> raise invalidInput in
     eval e)
+
   |_-> raise invalidInput in
   pullValues
-let evaluateExpression' (e : expression) =
+let evaluateExpression' =
   let pullValues e values = match values with 
   | a::[b] -> (
+
     let rec trEval e (acc: bool -> bool) = match e with 
       |Var("a") -> acc a
       |Var("b") -> acc b
@@ -67,35 +62,36 @@ let evaluateExpression' (e : expression) =
       |Or(u, v) -> trEval  u (fun r1 -> trEval v (fun r2 -> acc (r1 || r2)))
       |Var(_) -> raise invalidInput in
       trEval e (fun r -> r))
+
   |_ -> raise invalidInput in
   pullValues
-let rec memoEvaluateExpression (e : expression) =
-  let store : (expression, bool) Hashtbl.t = Hashtbl.create 1000 in
+let memoEvaluateExpression =
   let pullValues e values = match values with
   |a::[b] -> (
-    let rec memoEval f values = 
-      match Hashtbl.find_opt store e with
-      | Some result -> result  
-      | None ->
-          let result = 
-            match f with
-            | Var("a") -> a
-            | Var("b") -> b
-            | Not u -> not (memoEval u values)
-            | And (u, v) -> (memoEval u values) && (memoEval v values)
-            | Or (u, v) -> (memoEval u values) || (memoEval v values)
-            | Var(_) -> raise invalidInput
-        in (Hashtbl.add store f result; result)
-      in
-      memoEval )
+
+  let store = Hashtbl.create 1000 in
+  let rec memoEval e =
+    match Hashtbl.find_opt store e with
+    | Some result -> result
+    | None ->
+        let result = match e with
+          |Var("a") -> a
+          |Var("b") -> b
+          |Not(u) -> not (memoEval u)
+          |And(u, v) -> (memoEval u) && (memoEval v)
+          |Or(u, v) -> (memoEval u) || (memoEval v)
+          |_ -> raise invalidInput
+        in
+        (Hashtbl.add store e result; result) in
+        memoEval e)
+
     |_ -> raise invalidInput in 
     pullValues
 
 
 (* TRUTH TABLE GENERATION *)
 let truthTable2D evaluator (e : expression)  = 
-    let eval = evaluator e in
-    List.map (fun comb -> (comb, eval e comb)) combinations
+    List.map (fun comb -> (comb, evaluator e comb)) combinations
 let printTruthTable2D evaluator (e : expression) =
   let table = truthTable2D evaluator e in
   Printf.printf "Truth table for %s:\n" (printExpression e);
@@ -107,33 +103,36 @@ let printTruthTable2D evaluator (e : expression) =
   ;;
 
 (*SAT SECTION*)
-(*let satSolverImplies (e1 : expression) (e2 : expression) evaluator : bool = 
+let alwaysTrue evaluator (e: expression) : bool = 
+  let table = truthTable2D evaluator e in
+  let resultants = List.map (fun (a, b) -> b) table in
+  resultants = [true;true;true;true]
+let existsSolution evaluator (e: expression) : bool = 
+  let table = truthTable2D evaluator e in
+  let resultants = List.map (fun (a, b) -> b) table in
+  List.mem true resultants
+
+let satSolverImplies evaluator (e1 : expression) (e2 : expression) : bool = 
   let e = Or(Not(e1), e2) in
-  let result = truthTable2D e evaluator in
-  result = [[true;true];[true;true]]
-let satSolverImpliedBy (e1 : expression) (e2: expression) evaluator : bool = 
+  alwaysTrue evaluator e
+let satSolverImpliedBy evaluator (e1 : expression) (e2: expression) : bool = 
   let e = Or(Not(e2), e1) in
-  let result = truthTable2D e evaluator in
-  result = [[true;true];[true;true]]
+  alwaysTrue evaluator e
 let satSolverIff (e1 : expression) (e2: expression) evaluator : bool = 
   let e = Or(And(e1, e2), And(Not(e1), Not(e2))) in
-  let result = truthTable2D e evaluator in
-  result = [[true;true];[true;true]]
+  alwaysTrue evaluator e
 
-
+  
 (*SOLUTION SET*)
-let existsSolution (e: expression) evaluator : bool = 
-  evaluator e (true, true) || evaluator e (false, true) || evaluator e (true, false) || evaluator e (false, false)
-let alwaysTrue (e: expression) evaluator : bool =
-  evaluator e (true, true) && evaluator e (false, true) && evaluator e (true, false) && evaluator e (false, false)
-let findSolutions (e: expression) evaluator : (bool * bool) list =
-  let comb = [(true, true);(false, true);(true, false);(false, false)] in
+let findSolutions (e: expression) evaluator =
   let rec findComb comb acc = match comb with
   |[] -> acc
   |h::t -> if evaluator e h then findComb t (h::acc) else findComb t acc 
-in findComb comb []
+in findComb combinations []
 
- *)
+
+
+
 (*    TESTINGGGGGG   *)
 let test1 = And(Not(Or(Var("a"), And(Var("a"), Var("b")))), Or(And(Var("a"), Var("b")), And(Not(Var("a")), Var("b"))));;
 let test2 = And(Not(Var("a")), Var("b")) ;;
@@ -145,6 +144,11 @@ let sat4 = Not(And(Not(Var("a")), Not(Var("b"))));;
 printTruthTable2D evaluateExpression test2;;
 printTruthTable2D evaluateExpression' test2;;
 printTruthTable2D memoEvaluateExpression test2;;
+alwaysTrue evaluateExpression (Not((And(Not(Var("a")), Var("a")))))
+
+
+
+
 (*
 let test e = 
   let a = evaluateExpression e (true, true) in 
@@ -182,5 +186,12 @@ evaluateExpression' test2 (true, true);;
 printExpression test2;;
 printExpression' test2;;
 truthTable2D test2;;*)
-
+let string_of_bool_list lst =
+  "[" ^ String.concat "; " (List.map string_of_bool lst) ^ "]"
+let string_of_2_bool_list lst =
+  "[" ^ String.concat "; " (List.map (fun (a, b) -> ("("^string_of_bool a ^ ", " ^ string_of_bool b^")")) lst) ^ "]"
+let string_of_bool_list_list lst_lst =
+  "[" ^ String.concat "; " (List.map string_of_bool_list lst_lst) ^ "]"
+let string_of_2_bool_list_list lst_lst =
+  "[" ^ String.concat "; " (List.map string_of_2_bool_list lst_lst) ^ "]"
 *)
