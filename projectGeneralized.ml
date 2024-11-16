@@ -9,10 +9,6 @@ type expression =
 
 
 (* PRINTING *)
-let string_of_bool_list lst =
-  "[" ^ String.concat "; " (List.map string_of_bool lst) ^ "]"
-let string_of_bool_list_list lst_lst =
-  "[" ^ String.concat "; " (List.map string_of_bool_list lst_lst) ^ "]"
 let rec printExpression (e: expression): string = match e with (* recursive *)
   | Var(u) -> string_of_int u
   | Not(u) -> "¬" ^ printExpression u
@@ -44,18 +40,13 @@ let trInputList (e: expression): int list = (* with continuations *)
   List.sort (fun a b -> if a<b then 0 else 1) (matchInputs e [] (fun r -> r)) (* sort by increasing order *)
 
 
-
 (* COMBINATION GENERATION *)
-let rec generate_combinations n : (bool list) list = (* will generate in binary decreasing order *)
+let rec generateCombinations n : (bool list) list = (* will generate in binary decreasing order *)
   if n = 0 then [[]]
   else
-    let sub_combinations = generate_combinations (n - 1) in
+    let sub_combinations = generateCombinations (n - 1) in
       List.map (fun comb -> true :: comb) sub_combinations @
       List.map (fun comb -> false :: comb) sub_combinations
-
-let make_value_pairs vars comb =
-  List.combine vars comb
-
 
 (* EVALUATING WITH MEMOIZATION *)
 let memoEvaluateExpression = (* partial evaluation *)
@@ -76,23 +67,21 @@ let memoEvaluateExpression = (* partial evaluation *)
         (* Memoize and return result *)
         (Hashtbl.add store (e, values) result;
         result)
-  in
-  eval
-
+      in eval
 
 (* TRUTH TABLE GENERATION *)
 let truthTable (e : expression) : (bool list * bool) list =
   let vars = inputList e in
-  let combinations = generate_combinations (List.length vars) in
+  let combinations = generateCombinations (List.length vars) in
   List.map (fun comb ->
-      let values = make_value_pairs vars comb in
+      let values = List.combine vars comb in
       (comb, memoEvaluateExpression e values)
     ) combinations
 
 (* format: list of ([var1=bool1, ..., varn=booln], eval)  *)   
 
 (* PRINTING THE TRUTH TABLE *)
-let print_truth_table (e : expression) =
+let printTruthTable (e : expression) =
   let vars = inputList e in
   let table = truthTable e in
   Printf.printf "Truth table for %s:\n" (printExpression e);
@@ -100,6 +89,42 @@ let print_truth_table (e : expression) =
   List.iter (fun (comb, result) ->
       Printf.printf "%12s | %B\n" (String.concat " " (List.map string_of_bool comb)) result
     ) table
+
+(* SAT STUFF *)
+let makeTrueList n = 
+  let rec makeTrueList' n acc =
+    if n = 0 then acc else makeTrueList' (n-1) (true::acc) in
+  makeTrueList' n []
+
+let alwaysTrue (e: expression) : bool = 
+  let table = truthTable e in
+  let resultants = List.map (fun (a, b) -> b) table in
+  resultants = makeTrueList (List.length table)
+let existsSolution (e: expression) : bool = 
+  let table = truthTable e in
+  let resultants = List.map (fun (a, b) -> b) table in
+  List.mem true resultants
+
+let satSolverImplies evaluator (e1 : expression) (e2 : expression) : bool = 
+  let e = Or(Not(e1), e2) in
+  alwaysTrue e
+let satSolverImpliedBy evaluator (e1 : expression) (e2: expression) : bool = 
+  let e = Or(Not(e2), e1) in
+  alwaysTrue e
+let satSolverIff (e1 : expression) (e2: expression) evaluator : bool = 
+  let e = Or(And(e1, e2), And(Not(e1), Not(e2))) in
+  alwaysTrue e
+
+  
+(*SOLUTION SET*)
+let findSolutions (e: expression) =
+  let vars = inputList e in
+  let combinations = generateCombinations (List.length vars) in
+  let combPairs = List.map (fun r -> List.combine vars r) combinations in
+  let rec findComb comb acc = match comb with
+  |[] -> acc
+  |h::t -> if memoEvaluateExpression e h then findComb t (h::acc) else findComb t acc 
+in findComb combPairs []
 
 (* TESTING *)
 let test1 = And(Not(Or(Var(1), And(Var(1), Var(2)))), Or(And(Var(3), Var(2)), And(Not(Var(1)), Var(3))))
@@ -110,5 +135,7 @@ Or(Var(1), Or(Or(Var(6), Var(5)), Var(2)))), Or(Or(Var(5), Or(Or(Var(8), Var(3))
 let () =
   printExpression test1 |> Printf.printf "Expression 1: %s\n";
   printExpression test2 |> Printf.printf "Expression 2: %s\n";
-  print_truth_table test1;
-  print_truth_table test2
+  printTruthTable test1;
+  printTruthTable test2;;
+
+findSolutions test2;;
