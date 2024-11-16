@@ -7,6 +7,9 @@ type expression =
   | And of expression * expression
   | Or of expression * expression
 
+(* HELPER FUNCTION *)
+let matchValue u values = 
+  try List.assoc u values with Not_found -> raise invalidInput
 
 (* PRINTING *)
 let rec printExpression (e: expression): string = match e with (* recursive *)
@@ -59,7 +62,7 @@ let memoEvaluateExpression = (* partial evaluation *)
     | None ->
         (* Evaluate based on expression type *)
         let result = match e with
-          | Var v -> (try List.assoc v values with Not_found -> raise invalidInput)
+          | Var u -> matchValue u values
           | Not u -> not (eval u values)
           | And(u, v) -> (eval u values) && (eval v values)
           | Or(u, v) -> (eval u values) || (eval v values)
@@ -69,21 +72,39 @@ let memoEvaluateExpression = (* partial evaluation *)
         result)
       in eval
 
+(* EVALUATING REGULARLY *)
+let evaluateExpression =
+  let rec eval e values = match e with 
+    |Var(u) -> matchValue u values
+    |Not(u) -> not (eval u values)
+    |And(u, v) -> let u' = (eval u values) and v' = (eval v values) in (u' && v')
+    |Or(u, v) -> let u' = (eval u values) and v' = (eval v values) in (u' || v') in
+  eval
+
+(* EVALUATING TAIL RECURSIVELY *)
+let evaluateExpression' =
+    let rec trEval (acc: bool -> bool) e values = match e with 
+      |Var(u) -> acc (matchValue u values)
+      |Not(u) -> trEval (fun r -> acc (not r)) u values
+      |And(u, v) -> trEval (fun r1 -> trEval (fun r2 -> acc (r1 && r2)) v values) u values
+      |Or(u, v) -> trEval (fun r1 -> trEval (fun r2 -> acc (r1 || r2)) v values) u values in
+    trEval (fun r -> r)
+
 (* TRUTH TABLE GENERATION *)
-let truthTable (e : expression) : (bool list * bool) list =
+let truthTable evaluator (e : expression) : (bool list * bool) list =
   let vars = inputList e in
   let combinations = generateCombinations (List.length vars) in
   List.map (fun comb ->
       let values = List.combine vars comb in
-      (comb, memoEvaluateExpression e values)
+      (comb, evaluator e values)
     ) combinations
 
 (* format: list of ([var1=bool1, ..., varn=booln], eval)  *)   
 
 (* PRINTING THE TRUTH TABLE *)
-let printTruthTable (e : expression) =
+let printTruthTable evaluator (e : expression) =
   let vars = inputList e in
-  let table = truthTable e in
+  let table = truthTable evaluator e in
   Printf.printf "Truth table for %s:\n" (printExpression e);
   Printf.printf "%12s | Result\n" (String.concat "    " (List.map string_of_int vars));
   List.iter (fun (comb, result) ->
@@ -96,34 +117,34 @@ let makeTrueList n =
     if n = 0 then acc else makeTrueList' (n-1) (true::acc) in
   makeTrueList' n []
 
-let alwaysTrue (e: expression) : bool = 
-  let table = truthTable e in
+let alwaysTrue evaluator (e: expression) : bool = 
+  let table = truthTable evaluator e in
   let resultants = List.map (fun (a, b) -> b) table in
   resultants = makeTrueList (List.length table)
-let existsSolution (e: expression) : bool = 
-  let table = truthTable e in
+let existsSolution evaluator (e: expression) : bool = 
+  let table = truthTable evaluator e in
   let resultants = List.map (fun (a, b) -> b) table in
   List.mem true resultants
 
 let satSolverImplies evaluator (e1 : expression) (e2 : expression) : bool = 
   let e = Or(Not(e1), e2) in
-  alwaysTrue e
+  alwaysTrue evaluator e
 let satSolverImpliedBy evaluator (e1 : expression) (e2: expression) : bool = 
   let e = Or(Not(e2), e1) in
-  alwaysTrue e
+  alwaysTrue evaluator e
 let satSolverIff (e1 : expression) (e2: expression) evaluator : bool = 
   let e = Or(And(e1, e2), And(Not(e1), Not(e2))) in
-  alwaysTrue e
+  alwaysTrue evaluator e
 
   
 (*SOLUTION SET*)
-let findSolutions (e: expression) =
+let findSolutions evaluator (e: expression) =
   let vars = inputList e in
   let combinations = generateCombinations (List.length vars) in
   let combPairs = List.map (fun r -> List.combine vars r) combinations in
   let rec findComb comb acc = match comb with
   |[] -> acc
-  |h::t -> if memoEvaluateExpression e h then findComb t (h::acc) else findComb t acc 
+  |h::t -> if evaluator e h then findComb t (h::acc) else findComb t acc 
 in findComb combPairs []
 
 (* TESTING *)
@@ -135,7 +156,9 @@ Or(Var(1), Or(Or(Var(6), Var(5)), Var(2)))), Or(Or(Var(5), Or(Or(Var(8), Var(3))
 let () =
   printExpression test1 |> Printf.printf "Expression 1: %s\n";
   printExpression test2 |> Printf.printf "Expression 2: %s\n";
-  printTruthTable test1;
-  printTruthTable test2;;
+  printTruthTable evaluateExpression test1;
+  printTruthTable evaluateExpression test2;;
 
-findSolutions test2;;
+findSolutions evaluateExpression' test2;;
+printTruthTable evaluateExpression' test2;;
+printTruthTable evaluateExpression test2;;

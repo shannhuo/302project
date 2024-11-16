@@ -144,8 +144,10 @@ let sat4 = Not(And(Not(Var("a")), Not(Var("b"))));;
 printTruthTable2D evaluateExpression test2;;
 printTruthTable2D evaluateExpression' test2;;
 printTruthTable2D memoEvaluateExpression test2;;
-alwaysTrue evaluateExpression (Not((And(Not(Var("a")), Var("a")))))
+alwaysTrue evaluateExpression (Not((And(Not(Var("a")), Var("a")))));;
 
+printTruthTable2D evaluateExpression sat4;;
+printTruthTable2D evaluateExpression' sat4;;
 
 
 
