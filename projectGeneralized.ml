@@ -72,18 +72,6 @@ let trInputList (e: expression): int list = (* with continuations *)
   List.sort (fun a b -> if a<b then 0 else 1) (matchInputs e [] (fun r -> r))
 
 
-(* COMBINATION GENERATION *)
-(** Generates all possible combinations of boolean values for a given number of variables.
-    @param n The number of variables.
-    @return A list of boolean combinations.
-*)
-let rec generateCombinations n : (bool list) list = (* will generate in binary decreasing order *)
-  if n = 0 then [[]]
-  else
-    let sub_combinations = generateCombinations (n - 1) in
-      List.map (fun comb -> true :: comb) sub_combinations @
-      List.map (fun comb -> false :: comb) sub_combinations
-
 (* EVALUATION FUNCTIONS *)
 (** EVALUATING WITH MEMOIZATION 
   Evaluates a boolean expression with memoization to optimize repeated evaluations
@@ -141,6 +129,18 @@ let evaluateExpression' =
 
 
 (* TRUTH TABLES *)
+
+(** Generates all possible combinations of boolean values for a given number of variables.
+    @param n The number of variables.
+    @return A list of boolean combinations.
+*)
+let rec generateCombinations n : (bool list) list = (* will generate in binary decreasing order *)
+  if n = 0 then [[]]
+  else
+    let sub_combinations = generateCombinations (n - 1) in
+      List.map (fun comb -> true :: comb) sub_combinations @
+      List.map (fun comb -> false :: comb) sub_combinations
+
 (**
    Constructs a truth table for the given expression.
     
@@ -217,14 +217,9 @@ let existsSolution evaluator (e: expression) : bool =
     @param e The boolean expression.
     @return A list of variable assignments (as lists of `(variable, value)` pairs) that satisfy the expression.
 *)
-let findSolutions evaluator (e: expression) =
-  let vars = inputList e in
-  let combinations = generateCombinations (List.length vars) in
-  let combPairs = List.map (fun r -> List.combine vars r) combinations in
-  let rec findComb comb acc = match comb with
-  |[] -> acc
-  |h::t -> if evaluator e h then findComb t (h::acc) else findComb t acc 
-in findComb combPairs []
+let findSolutions evaluator (e: expression) = 
+  let table = truthTable evaluator e in
+  List.filter (fun (a, b) -> b) table
 
 
 
@@ -281,6 +276,6 @@ let () =
   printTruthTable evaluateExpression test1;
   printTruthTable evaluateExpression test2;;
 
-findSolutions evaluateExpression' test2;;
+findSolutions evaluateExpression test1;;
 printTruthTable evaluateExpression' test2;;
 printTruthTable evaluateExpression test2;;

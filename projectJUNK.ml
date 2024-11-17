@@ -57,3 +57,13 @@ let memoEvaluateExpression (e: expression) (i : bool * bool) : bool =
             | Or (u, v) -> (memoEvaluateExpression u i) || (memoEvaluateExpression v i)
             | Var(_) -> raise invalidInput
           (Hashtbl.add store e result; result)*)
+
+
+          let findSolutions evaluator (e: expression) =
+            let vars = inputList e in
+            let combinations = generateCombinations (List.length vars) in
+            let combPairs = List.map (fun r -> List.combine vars r) combinations in
+            let rec findComb comb acc = match comb with
+            |[] -> acc
+            |h::t -> if evaluator e h then findComb t (h::acc) else findComb t acc 
+          in findComb combPairs []
