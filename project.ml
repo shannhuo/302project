@@ -7,13 +7,9 @@ type expression =
   | And of expression * expression
   | Or of expression * expression;;
 
+let combinations = [[true;true];[true;false];[false;true];[false;false]]
 
 (*PRINTING*)
-
-let make_value_pairs vars comb =
-  List.combine vars comb
-
-let combinations = [[true;true];[true;false];[false;true];[false;false]]
 let rec printExpression (e: expression): string = match e with
   |Var("a") -> "a"
   |Var("b") -> "b"
@@ -99,8 +95,6 @@ let printTruthTable2D evaluator (e : expression) =
   List.iter (fun (comb, result) ->
       Printf.printf "%12s | %B\n" (String.concat " " (List.map string_of_bool comb)) result
     ) table 
-
-  ;;
 
 (*SAT SECTION*)
 let alwaysTrue evaluator (e: expression) : bool = 

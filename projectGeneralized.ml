@@ -31,7 +31,7 @@ let matchValue u values =
 
 (* PRINTING *)
 (**
-  Converts boolean expression into a human-readable string
+  Converts boolean expression into a human-readable string (recursive and tail-recursive)
   @param e The expression to convert
   @return A string representation of the expression
 *)
@@ -51,7 +51,8 @@ let printExpression' (e: expression) : string = (* with continuations *)
 
 (* INPUT COLLECTION *)
 (**
-  Collects list of unique variable indices used in a boolean expression (recursive and tail-recursive versions)
+  Collects list of unique variable indices used in a boolean expression 
+  (recursive and tail-recursive versions), in increasing order.
   @param e The expression to analyze
   @return A sorted list of unique variable indices
 *)
@@ -68,7 +69,7 @@ let trInputList (e: expression): int list = (* with continuations *)
     | Not u -> matchInputs u acc sc
     | And(u, v) | Or(u, v) -> matchInputs u acc (fun r -> sc (matchInputs v r sc))
   in
-  List.sort (fun a b -> if a<b then 0 else 1) (matchInputs e [] (fun r -> r)) (* sort by increasing order *)
+  List.sort (fun a b -> if a<b then 0 else 1) (matchInputs e [] (fun r -> r))
 
 
 (* COMBINATION GENERATION *)
@@ -138,15 +139,16 @@ let evaluateExpression' =
       |Or(u, v) -> trEval (fun r1 -> trEval (fun r2 -> acc (r1 || r2)) v values) u values in
     trEval (fun r -> r)
 
-(* TRUTH TABLE GENERATION *)
+
+(* TRUTH TABLES *)
 (**
    Constructs a truth table for the given expression.
     
     @param evaluator The evaluation function to use.
     @param e The boolean expression.
-    @return A list of pairs, where each pair consists of:
-            - A boolean combination for the variables.
-            - The evaluation result for the expression.
+    @return A list of tuples, where each tuple consists of:
+            - A boolean combination for the variables (bool list).
+            - The evaluation result for the expression (bool).
 *)
 let truthTable evaluator (e : expression) : (bool list * bool) list =
   let vars = inputList e in
@@ -156,9 +158,7 @@ let truthTable evaluator (e : expression) : (bool list * bool) list =
       (comb, evaluator e values)
     ) combinations
 
-(* format: list of ([var1=bool1, ..., varn=booln], eval)  *)   
 
-(* PRINTING THE TRUTH TABLE *)
 (**
   Prints the truth table for a given expression.
     @param evaluator The evaluation function to use.
@@ -173,11 +173,13 @@ let printTruthTable evaluator (e : expression) =
       Printf.printf "%12s | %B\n" (String.concat " " (List.map string_of_bool comb)) result
     ) table
 
-(* SAT FUNCTIONS *)
-**
-  Prints the truth table for a given expression.
-    @param evaluator The evaluation function to use.
-    @param e The boolean expression.
+
+
+
+(*SOLUTION SET FUNCTIONS*)
+(**
+  Creates a bool list of length n of true.
+    @param n Length of list.
 *)
 let makeTrueList n = 
   let rec makeTrueList' n acc =
@@ -208,44 +210,6 @@ let existsSolution evaluator (e: expression) : bool =
   let resultants = List.map (fun (a, b) -> b) table in
   List.mem true resultants
 
-(** 
-  Checks if one boolean expression implies another using SAT solving.
-  
-  @param evaluator The evaluation function to use.
-  @param e1 The first boolean expression.
-  @param e2 The second boolean expression.
-  @return `true` if `e1` implies `e2`, otherwise `false`.
-*)
-let satSolverImplies evaluator (e1 : expression) (e2 : expression) : bool = 
-  let e = Or(Not(e1), e2) in
-  alwaysTrue evaluator e
-
-(** 
-    Checks if one boolean expression is implied by another using SAT solving.
-    
-    @param evaluator The evaluation function to use.
-    @param e1 The first boolean expression.
-    @param e2 The second boolean expression.
-    @return `true` if `e2` implies `e1`, otherwise `false`.
-*)
-let satSolverImpliedBy evaluator (e1 : expression) (e2: expression) : bool = 
-  let e = Or(Not(e2), e1) in
-  alwaysTrue evaluator e
-
-(** 
-    Checks if two boolean expressions are logically equivalent using SAT solving.
-    
-    @param evaluator The evaluation function to use.
-    @param e1 The first boolean expression.
-    @param e2 The second boolean expression.
-    @return `true` if `e1` is equivalent to `e2`, otherwise `false`.
-*)
-let satSolverIff (e1 : expression) (e2: expression) evaluator : bool = 
-  let e = Or(And(e1, e2), And(Not(e1), Not(e2))) in
-  alwaysTrue evaluator e
-
-  
-(*SOLUTION SET FUNCTIONS*)
 (**
     Finds all solutions (variable assignments) for which a boolean expression evaluates to `true`.
     
@@ -261,6 +225,49 @@ let findSolutions evaluator (e: expression) =
   |[] -> acc
   |h::t -> if evaluator e h then findComb t (h::acc) else findComb t acc 
 in findComb combPairs []
+
+
+
+
+(* SAT FUNCTIONS *)
+(** 
+  Checks if one boolean expression implies another.
+  
+  @param evaluator The evaluation function to use.
+  @param e1 The first boolean expression.
+  @param e2 The second boolean expression.
+  @return `true` if `e1` implies `e2`, otherwise `false`.
+*)
+let satSolverImplies evaluator (e1 : expression) (e2 : expression) : bool = 
+  let e = Or(Not(e1), e2) in
+  alwaysTrue evaluator e
+
+(** 
+    Checks if one boolean expression is implied by another.
+    
+    @param evaluator The evaluation function to use.
+    @param e1 The first boolean expression.
+    @param e2 The second boolean expression.
+    @return `true` if `e2` implies `e1`, otherwise `false`.
+*)
+let satSolverImpliedBy evaluator (e1 : expression) (e2: expression) : bool = 
+  let e = Or(Not(e2), e1) in
+  alwaysTrue evaluator e
+
+(** 
+    Checks if two boolean expressions are logically equivalent.
+    
+    @param evaluator The evaluation function to use.
+    @param e1 The first boolean expression.
+    @param e2 The second boolean expression.
+    @return `true` if `e1` is equivalent to `e2`, otherwise `false`.
+*)
+let satSolverIff (e1 : expression) (e2: expression) evaluator : bool = 
+  let e = Or(And(e1, e2), And(Not(e1), Not(e2))) in
+  alwaysTrue evaluator e
+
+
+
 
 (* TESTING *)
 let test1 = And(Not(Or(Var(1), And(Var(1), Var(2)))), Or(And(Var(3), Var(2)), And(Not(Var(1)), Var(3))))
