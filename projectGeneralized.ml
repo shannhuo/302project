@@ -91,10 +91,10 @@ let rec generateCombinations n : (bool list) list = (* will generate in binary d
     @param values A list of (variable, value) pairs.
     @return The result of evaluating the expression.
 *)
-let memoEvaluateExpression = (* partial evaluation *)
+let memoEvaluateExpression =
   let store : (expression * (int * bool) list, bool) Hashtbl.t = Hashtbl.create 1000 in
 
-  let rec eval e values =
+  let rec eval (e: expression) (values: (int * bool) list) =
     (* Check memoization store *)
     match Hashtbl.find_opt store (e, values) with
     | Some result -> result
@@ -118,11 +118,11 @@ Evaluates a boolean expression using a standard recursive approach.
     @return The result of evaluating the expression with the given variable assignments.
 *)
 let evaluateExpression =
-  let rec eval e values = match e with 
+  let rec eval (e: expression) (values: (int * bool) list) = match e with 
     |Var(u) -> matchValue u values
     |Not(u) -> not (eval u values)
-    |And(u, v) -> let u' = (eval u values) and v' = (eval v values) in (u' && v')
-    |Or(u, v) -> let u' = (eval u values) and v' = (eval v values) in (u' || v') in
+    |And(u, v) -> (eval u values) && (eval v values)
+    |Or(u, v) -> (eval u values) || (eval v values) in
   eval
 
 (** EVALUATING TAIL RECURSIVELY 
@@ -132,7 +132,7 @@ Evaluates a boolean expression using a tail-recursive approach with continuation
     @return The result of evaluating the expression with the given variable assignments.
   *)
 let evaluateExpression' =
-    let rec trEval (acc: bool -> bool) e values = match e with 
+    let rec trEval (acc: bool -> bool) (e: expression) (values: (int * bool) list) = match e with 
       |Var(u) -> acc (matchValue u values)
       |Not(u) -> trEval (fun r -> acc (not r)) u values
       |And(u, v) -> trEval (fun r1 -> trEval (fun r2 -> acc (r1 && r2)) v values) u values
