@@ -1,6 +1,18 @@
+(**
+Boolean Expression Evaluator and SAT Solver
+This program includes capabilities such as 
+  - Define and manipulate boolean expressions
+  - Generate truth tables
+  - Evaluate generated boolean expressions 
+  - Utilize memoization to optimize processes
+  - Solve SAT (satifiability) problems 
+  *)
+
+(** Exception raised for invalid input such as non-integers *)
 exception Msg of string
 let invalidInput = Msg("invalidInput (use variable indices as integers)")
 
+(** Represents elements of a boolean expression *)
 type expression =
   | Var of int
   | Not of expression
@@ -8,10 +20,21 @@ type expression =
   | Or of expression * expression
 
 (* HELPER FUNCTION *)
+(** Matches a variable's value in the provided list of (int*bool) pairs
+  @param u The variable to look up
+  @param values A list of (variable, value) pairs
+  @return The value of the variable if found
+  @raise Msg If variable not found in the list
+*)
 let matchValue u values = 
   try List.assoc u values with Not_found -> raise invalidInput
 
 (* PRINTING *)
+(**
+  Converts boolean expression into a human-readable string
+  @param e The expression to convert
+  @return A string representation of the expression
+*)
 let rec printExpression (e: expression): string = match e with (* recursive *)
   | Var(u) -> string_of_int u
   | Not(u) -> "¬" ^ printExpression u
@@ -27,6 +50,11 @@ let printExpression' (e: expression) : string = (* with continuations *)
 
 
 (* INPUT COLLECTION *)
+(**
+  Collects list of unique variable indices used in a boolean expression (recursive and tail-recursive versions)
+  @param e The expression to analyze
+  @return A sorted list of unique variable indices
+*)
 let inputList (e: expression): int list = (* recursive *)
   let rec matchInputs e acc = match e with
     | Var u -> if List.mem u acc then acc else u :: acc
@@ -44,6 +72,10 @@ let trInputList (e: expression): int list = (* with continuations *)
 
 
 (* COMBINATION GENERATION *)
+(** Generates all possible combinations of boolean values for a given number of variables.
+    @param n The number of variables.
+    @return A list of boolean combinations.
+*)
 let rec generateCombinations n : (bool list) list = (* will generate in binary decreasing order *)
   if n = 0 then [[]]
   else
@@ -51,7 +83,13 @@ let rec generateCombinations n : (bool list) list = (* will generate in binary d
       List.map (fun comb -> true :: comb) sub_combinations @
       List.map (fun comb -> false :: comb) sub_combinations
 
-(* EVALUATING WITH MEMOIZATION *)
+(* EVALUATION FUNCTIONS *)
+(** EVALUATING WITH MEMOIZATION 
+  Evaluates a boolean expression with memoization to optimize repeated evaluations
+    @param e The expression to evaluate.
+    @param values A list of (variable, value) pairs.
+    @return The result of evaluating the expression.
+*)
 let memoEvaluateExpression = (* partial evaluation *)
   let store : (expression * (int * bool) list, bool) Hashtbl.t = Hashtbl.create 1000 in
 
@@ -72,7 +110,12 @@ let memoEvaluateExpression = (* partial evaluation *)
         result)
       in eval
 
-(* EVALUATING REGULARLY *)
+(** EVALUATING REGULARLY 
+Evaluates a boolean expression using a standard recursive approach.
+    @param e The boolean expression to evaluate.
+    @param values A list of `(variable, value)` pairs representing the variable assignments.
+    @return The result of evaluating the expression with the given variable assignments.
+*)
 let evaluateExpression =
   let rec eval e values = match e with 
     |Var(u) -> matchValue u values
@@ -81,7 +124,12 @@ let evaluateExpression =
     |Or(u, v) -> let u' = (eval u values) and v' = (eval v values) in (u' || v') in
   eval
 
-(* EVALUATING TAIL RECURSIVELY *)
+(** EVALUATING TAIL RECURSIVELY 
+Evaluates a boolean expression using a tail-recursive approach with continuations.
+    @param e The boolean expression to evaluate.
+    @param values A list of `(variable, value)` pairs representing the variable assignments.
+    @return The result of evaluating the expression with the given variable assignments.
+  *)
 let evaluateExpression' =
     let rec trEval (acc: bool -> bool) e values = match e with 
       |Var(u) -> acc (matchValue u values)
@@ -91,6 +139,15 @@ let evaluateExpression' =
     trEval (fun r -> r)
 
 (* TRUTH TABLE GENERATION *)
+(**
+   Constructs a truth table for the given expression.
+    
+    @param evaluator The evaluation function to use.
+    @param e The boolean expression.
+    @return A list of pairs, where each pair consists of:
+            - A boolean combination for the variables.
+            - The evaluation result for the expression.
+*)
 let truthTable evaluator (e : expression) : (bool list * bool) list =
   let vars = inputList e in
   let combinations = generateCombinations (List.length vars) in
@@ -102,6 +159,11 @@ let truthTable evaluator (e : expression) : (bool list * bool) list =
 (* format: list of ([var1=bool1, ..., varn=booln], eval)  *)   
 
 (* PRINTING THE TRUTH TABLE *)
+(**
+  Prints the truth table for a given expression.
+    @param evaluator The evaluation function to use.
+    @param e The boolean expression.
+*)
 let printTruthTable evaluator (e : expression) =
   let vars = inputList e in
   let table = truthTable evaluator e in
@@ -111,33 +173,86 @@ let printTruthTable evaluator (e : expression) =
       Printf.printf "%12s | %B\n" (String.concat " " (List.map string_of_bool comb)) result
     ) table
 
-(* SAT STUFF *)
+(* SAT FUNCTIONS *)
+**
+  Prints the truth table for a given expression.
+    @param evaluator The evaluation function to use.
+    @param e The boolean expression.
+*)
 let makeTrueList n = 
   let rec makeTrueList' n acc =
     if n = 0 then acc else makeTrueList' (n-1) (true::acc) in
   makeTrueList' n []
 
+(** 
+    Determines if a boolean expression is always true for all variable combinations.
+    
+    @param evaluator The evaluation function to use.
+    @param e The boolean expression.
+    @return `true` if the expression is always true, otherwise `false`.
+*)
 let alwaysTrue evaluator (e: expression) : bool = 
   let table = truthTable evaluator e in
   let resultants = List.map (fun (a, b) -> b) table in
   resultants = makeTrueList (List.length table)
+
+(** 
+  Determines if there exists at least one solution for which the boolean expression is true.
+  
+  @param evaluator The evaluation function to use.
+  @param e The boolean expression.
+  @return `true` if a solution exists, otherwise `false`.
+*)
 let existsSolution evaluator (e: expression) : bool = 
   let table = truthTable evaluator e in
   let resultants = List.map (fun (a, b) -> b) table in
   List.mem true resultants
 
+(** 
+  Checks if one boolean expression implies another using SAT solving.
+  
+  @param evaluator The evaluation function to use.
+  @param e1 The first boolean expression.
+  @param e2 The second boolean expression.
+  @return `true` if `e1` implies `e2`, otherwise `false`.
+*)
 let satSolverImplies evaluator (e1 : expression) (e2 : expression) : bool = 
   let e = Or(Not(e1), e2) in
   alwaysTrue evaluator e
+
+(** 
+    Checks if one boolean expression is implied by another using SAT solving.
+    
+    @param evaluator The evaluation function to use.
+    @param e1 The first boolean expression.
+    @param e2 The second boolean expression.
+    @return `true` if `e2` implies `e1`, otherwise `false`.
+*)
 let satSolverImpliedBy evaluator (e1 : expression) (e2: expression) : bool = 
   let e = Or(Not(e2), e1) in
   alwaysTrue evaluator e
+
+(** 
+    Checks if two boolean expressions are logically equivalent using SAT solving.
+    
+    @param evaluator The evaluation function to use.
+    @param e1 The first boolean expression.
+    @param e2 The second boolean expression.
+    @return `true` if `e1` is equivalent to `e2`, otherwise `false`.
+*)
 let satSolverIff (e1 : expression) (e2: expression) evaluator : bool = 
   let e = Or(And(e1, e2), And(Not(e1), Not(e2))) in
   alwaysTrue evaluator e
 
   
-(*SOLUTION SET*)
+(*SOLUTION SET FUNCTIONS*)
+(**
+    Finds all solutions (variable assignments) for which a boolean expression evaluates to `true`.
+    
+    @param evaluator The evaluation function to use.
+    @param e The boolean expression.
+    @return A list of variable assignments (as lists of `(variable, value)` pairs) that satisfy the expression.
+*)
 let findSolutions evaluator (e: expression) =
   let vars = inputList e in
   let combinations = generateCombinations (List.length vars) in
