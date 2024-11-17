@@ -52,38 +52,44 @@ $$e = \runin{not} (a \runin{\;and\;\;} (b \runin{\;or\;\;} a)) = \lnot(a \land (
 where we adopt the conventions \runin{not}=$\lnot$, \runin{or}=$\lor$, and \runin{and}=$\land$. In OCaml, we can define these expressions recursively with types:
 \begin{lstlisting}
 	type expression =
-		|Var of string (* in the general case, we'll use int *)
+		|Var of int
 		|Not of expression
 		|And of expression * expression
 		|Or of expression * expression;;
 \end{lstlisting}
 Hence, the expression above may be written as
 \begin{lstlisting}
-	let e = Not(And(a, Or(b, a)))
+	let e = Not(And(1, Or(2, 1)))
 \end{lstlisting}
-\textbf{We wish to understand the following... }\small
+\textbf{We wish to do the following... }
 \begin{enumerate}
-	\item Can we convert a recursively-defined boolean expression into human readable text?
-	\item Can we compute a boolean expression given fixed values for its inputs?
-	\item Can we compute all possible values of a boolean expression over its inputs (a "truth table")?
-	\item Can we find if a boolean expression is always true? Always false? Can we find if a boolean expression has a solution (i.e. a combination of inputs such that it is true), and, if so, list it/them?
-	\item Can we determine if two boolean expressions have an implication relation, i.e. $e_1 \implies e_2$,  $e_1 \impliedby e_2$, or $e_1 \iff e_2$? This is a simple "SAT solver."
-	\item Can we do all of the above on a boolean expressions of arbitrary (i.e. not 2) inputs? Can we do all of the above tail-recursively, or, if appropriate, with memoization? 
+	\item Convert a recursively-defined boolean expression into human readable text.
+	\item Extract an expression's variable names in a well-ordered fashion.
+	\item Evaluate an expression on fixed inputs values.
+	\item Compute the values of a boolean expression over all possible input combinations (i.e. make a "truth table"). Provide a readable summary of an expression using (1), (2), and the truth table.
+	\item Determine if a boolean expression is identically true, or if a solution for it exists, and, if so, on what inputs.
+	\item Determine if two boolean expressions have an implication relation, i.e. $e_1 \implies e_2$,  $e_1 \impliedby e_2$, or $e_1 \iff e_2$.
 \end{enumerate}\normalsize
 \section{Solution}
-The second and third questions have been solved on OCaml (\textit{ocaml.org $\to$ exercises $\to$ intermediate}), in both the $n=2$ and general cases. However, these solutions are not tail-recursive and are not space efficient. We provide the following solution outlines for the problems posed above:
+The third and fourth questions have been solved on OCaml (\textit{ocaml.org $\to$ exercises $\to$ intermediate}), in both the $n=2$ and general cases. However, these solutions are not tail-recursive and are not space efficient. We provide the following solution outlines for the problems above, which, if recursive, should be made tail recursive using continuations.
 \begin{enumerate}
-	\item \code{printExpression} One should approach this by pattern matching on the expression \code{e}: if \code{e} is a variable, return it; otherwise, place the appropriate operator (i.e. $\lnot, \lor, \land$) between (or in front) of a recursive call on the expression(s) contained in it. 
+	\item \code{printExpression} 
+	\newline One should approach this by pattern matching on the expression \code{e}: if \code{e} is a variable, return it; otherwise, place the appropriate operator (i.e. $\lnot, \lor, \land$) between (or in front) of a recursive call on the expression(s) contained in it. 
+	\item \code{inputList, trInputList} 
+	\newline We pattern match on an expression \code{e}: if \code{e} is a variable, check if we've seen it already (via an accumulator, say), and take note of it if not. Otherwise, recursively call on its arguments. At the end, use \code{List.sort} to get arguments in order.
 	\item \code{evaluateExpression, trEvaluateExpression, memoEvaluateExpression}
-	\\Similarly, given a list of bools associated with variables, we return the appropriate bool if we run into the variable. Otherwise, we perform the given logical operation (i.e. \code{not}, \code{||}, \code{\&\&}) on the recursive call.
-	\item \code{truthTable}: Generate a 2D list of $2^n$ rows consisting of all length-$n$ true-false combinations. We associate each index of each row with a variable in the expression. We hence use (2) from above to evaluate the expression on each row. Use higher order functions to adjust which evaluator you use.
-	\item \code{alwaysTrue, existsSolution, findSolutions}\\After generating (3) (the "truth table"), we simply analyze the solutions (are they all true/false?; if a combination evaluates to true, what was it)? 
-	\item \code{satSolverImplies, satSolverImpliedBy, satSolverIff}\\For $e_1 \implies e_2$ to hold, we require exactly that $e_2$ be true when $e_1$ is true. This is encoded in the verification of $e := (\lnot e_1) \lor e_2$. Evaluate $e$ on all inputs, and make sure it identically true (use functions from (4)). $e_1 \impliedby e_2$ and $e_1 \iff e_2$ follow similarly.
-	\item Only (1) and (2) require recursion, and tail-recursive versions may be accomplished easily via continuations. Generalizing to $n$, we wish to have a non-arbitrary ordering of variables. Strings are not good for this, so use integers. For example:
-\begin{lstlisting}
-let e = Or(And(Not(Var(3)), Var(1)), Var(2))
-\end{lstlisting}
-	then we need to extract these inputs recursively into a sorted list (i.e. \code{[1;2;3]}) and create pairings between a row of bools (recall: there are $2^n$ of these) and this list of variables. Finally, evaluate. Memoization may be accomplished by checking and storing sub-expressions in a hash table.
+	\newline Similarly, given a list of bools associated with variables, we return the appropriate bool if we run into the variable. Otherwise, we perform the given logical operation (i.e. \code{not}, \code{||}, \code{\&\&}) on the recursive call.
+	\item \code{truthTable}
+	\newline Generate a 2D list of $2^n$ rows consisting of all length-$n$ true-false combinations. Ideally one uses a helper function to do this. Then, associate each element in an input combo with a variable in the expression. We hence use (3) from above to evaluate the expression on this combination. Use higher order functions to adjust which evaluator you use. \code{Printf.printf} provides the functionality to display the results from (1), (2), and (4).
+	\item \code{alwaysTrue, existsSolution, findSolutions}
+	\newline After generating (3) (the "truth table"), we simply analyze the solutions (are they all true/false?; if a combination evaluates to true, what was it)? 
+	\item \code{satSolverImplies, satSolverImpliedBy, satSolverIff}
+	\newline For $e_1 \implies e_2$ to hold, we require exactly that $e_2$ be true when $e_1$ is true. This is encoded in the verification of $e := (\lnot e_1) \lor e_2$. Generate the truth table for $e$, and use \code{alwaysTrue} to see if it always holds. $e_1 \impliedby e_2$ and $e_1 \iff e_2$ follow similarly.
+%	\item Only (1) and (2) require recursion, and tail-recursive versions may be accomplished easily via continuations. Generalizing to $n$, we wish to have a non-arbitrary ordering of variables. Strings are not good for this, so use integers. For example:
+%\begin{lstlisting}
+%let e = Or(And(Not(Var(3)), Var(1)), Var(2))
+%\end{lstlisting}
+%	then we need to extract these inputs recursively into a sorted list (i.e. \code{[1;2;3]}) and create pairings between a row of bools (recall: there are $2^n$ of these) and this list of variables. Finally, evaluate. Memoization may be accomplished by checking and storing sub-expressions in a hash table.
 \end{enumerate}
 
 
